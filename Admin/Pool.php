@@ -12,39 +12,84 @@
 namespace Sonata\AdminBundle\Admin;
 
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\PropertyAccess\PropertyAccess;
+use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 
+/**
+ * Class Pool.
+ *
+ * @author  Thomas Rabaix <thomas.rabaix@sonata-project.org>
+ */
 class Pool
 {
-    protected $container = null;
+    /**
+     * @var ContainerInterface
+     */
+    protected $container;
 
+    /**
+     * @var string[]
+     */
     protected $adminServiceIds = array();
 
+    /**
+     * @var array
+     */
     protected $adminGroups = array();
 
+    /**
+     * @var array
+     */
     protected $adminClasses = array();
 
-    protected $templates    = array();
+    /**
+     * @var string[]
+     */
+    protected $templates = array();
 
-    protected $assets       = array();
+    /**
+     * @var array
+     */
+    protected $assets = array();
 
+    /**
+     * @var string
+     */
     protected $title;
 
+    /**
+     * @var string
+     */
     protected $titleLogo;
 
+    /**
+     * @var array
+     */
     protected $options;
 
     /**
-     * @param ContainerInterface $container
-     * @param string             $title
-     * @param string             $logoTitle
-     * @param array              $options
+     * @var PropertyAccessorInterface
      */
-    public function __construct(ContainerInterface $container, $title, $logoTitle, $options = array())
-    {
+    protected $propertyAccessor;
+
+    /**
+     * @param ContainerInterface $container
+     * @param string $title
+     * @param string $logoTitle
+     * @param array $options
+     */
+    public function __construct(
+        ContainerInterface $container,
+        $title,
+        $logoTitle,
+        $options = array(),
+        PropertyAccessorInterface $propertyAccessor = null
+    ) {
         $this->container = $container;
-        $this->title     = $title;
+        $this->title = $title;
         $this->titleLogo = $logoTitle;
-        $this->options   = $options;
+        $this->options = $options;
+        $this->propertyAccessor = $propertyAccessor;
     }
 
     /**
@@ -84,11 +129,16 @@ class Pool
 
         foreach ($this->adminGroups as $name => $adminGroup) {
             if (isset($adminGroup['items'])) {
-                foreach ($adminGroup['items'] as $key => $id) {
-                    $admin = $this->getInstance($id);
+                foreach ($adminGroup['items'] as $key => $item) {
+                    // Only Admin Group should be returned
+                    if ('' != $item['admin']) {
+                        $admin = $this->getInstance($item['admin']);
 
-                    if ($admin->showIn(Admin::CONTEXT_DASHBOARD)) {
-                        $groups[$name]['items'][$key] = $admin;
+                        if ($admin->showIn(AbstractAdmin::CONTEXT_DASHBOARD)) {
+                            $groups[$name]['items'][$key] = $admin;
+                        } else {
+                            unset($groups[$name]['items'][$key]);
+                        }
                     } else {
                         unset($groups[$name]['items'][$key]);
                     }
@@ -149,7 +199,13 @@ class Pool
         }
 
         if (count($this->adminClasses[$class]) > 1) {
-            throw new \RuntimeException(sprintf('Unable to found a valid admin for the class: %s, get too many admin registered: %s', $class, implode(',', $this->adminClasses[$class])));
+            throw new \RuntimeException(
+                sprintf(
+                    'Unable to find a valid admin for the class: %s, there are too many registered: %s',
+                    $class,
+                    implode(',', $this->adminClasses[$class])
+                )
+            );
         }
 
         return $this->getInstance($this->adminClasses[$class][0]);
@@ -193,7 +249,7 @@ class Pool
      *
      * @param string $id
      *
-     * @return \Sonata\AdminBundle\Admin\AdminInterface
+     * @return AdminInterface
      *
      * @throws \InvalidArgumentException
      */
@@ -207,7 +263,7 @@ class Pool
     }
 
     /**
-     * @return null|\Symfony\Component\DependencyInjection\ContainerInterface
+     * @return ContainerInterface|null
      */
     public function getContainer()
     {
@@ -288,8 +344,6 @@ class Pool
         if (isset($this->templates[$name])) {
             return $this->templates[$name];
         }
-
-        return;
     }
 
     /**
@@ -310,7 +364,7 @@ class Pool
 
     /**
      * @param string $name
-     * @param mixed  $default
+     * @param mixed $default
      *
      * @return mixed
      */
@@ -321,5 +375,14 @@ class Pool
         }
 
         return $default;
+    }
+
+    public function getPropertyAccessor()
+    {
+        if (null === $this->propertyAccessor) {
+            $this->propertyAccessor = PropertyAccess::createPropertyAccessor();
+        }
+
+        return $this->propertyAccessor;
     }
 }
