@@ -82,6 +82,12 @@ class AddDependencyCallsCompilerPass implements CompilerPassInterface
                 }
 
                 $groupDefaults[$resolvedGroupName]['items'][] = $id;
+                $groupDefaults[$resolvedGroupName]['items'][] = array(
+                    'admin' => $id,
+                    'label' => '',
+                    'route' => '',
+                    'route_params' => array()
+                );
             }
         }
 
